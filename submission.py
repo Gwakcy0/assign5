@@ -262,9 +262,9 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
       if player == 0:
         return max([v_imax(state.generateSuccessor(player, a), player + 1, depth) for a in legalMoves])
       elif player + 1 < state.getNumAgents():
-        return v_imax(state.generateSuccessor(player, random.choice(legalMoves)), player + 1, depth)
+        return sum([v_imax(state.generateSuccessor(player, a), player + 1, depth) for a in legalMoves]) / len(legalMoves)
       else:
-        return v_imax(state.generateSuccessor(player, random.choice(legalMoves)), 0, depth + 1)
+        return sum([v_imax(state.generateSuccessor(player, a), 0, depth + 1) for a in legalMoves]) / len(legalMoves)
 
     numAgents = gameState.getNumAgents()
     nextPlayer = (self.index + 1) % numAgents
@@ -289,7 +289,16 @@ class BiasedExpectimaxAgent(MultiAgentSearchAgent):
     """
 
     # BEGIN_YOUR_ANSWER
-    raise NotImplementedError  # remove this line before writing code
+    if gameState.isWin() or gameState.isLose():
+      return Directions.STOP
+
+    # Collect legal moves and successor states
+    legalMoves = gameState.getLegalActions(self.index)
+    scores = [self.getQ(gameState, action) for action in legalMoves]
+    bestScore = max(scores)
+    bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+    chosenIndex = random.choice(bestIndices)  # Pick randomly among the best
+    return legalMoves[chosenIndex]
     # END_YOUR_ANSWER
   
   def getQ(self, gameState, action):
@@ -297,7 +306,41 @@ class BiasedExpectimaxAgent(MultiAgentSearchAgent):
       Returns the biased-expectimax Q-Value using self.depth and self.evaluationFunction.
     """
     # BEGIN_YOUR_ANSWER
-    raise NotImplementedError  # remove this line before writing code
+    def v_biased(state, player, depth):
+      # manage end state utility and evaluation for the end of depth
+      if state.isWin() or state.isLose():
+        return state.getScore()
+      if depth == self.depth:
+        return self.evaluationFunction(state)
+
+      # collect legal moves, and list possible states
+      legalMoves = state.getLegalActions(player)
+      if len(legalMoves) == 0:
+        return self.evaluationFunction(state)
+
+      # choose next move of a ghost
+      if util.flipCoin(.5) and Directions.STOP in legalMoves:
+        move = Directions.STOP
+      else:
+        move = random.choice(legalMoves)
+
+      # if pacman turn, choose maximum
+      if player == 0:
+        return max([v_biased(state.generateSuccessor(player, a), player + 1, depth) for a in legalMoves])
+      elif player + 1 < state.getNumAgents():
+        v = sum([v_biased(state.generateSuccessor(player, a), player + 1, depth) for a in legalMoves]) / len(legalMoves)
+        if Directions.STOP in legalMoves:
+          return 0.5 * v_biased(state.generateSuccessor(player, Directions.STOP), player + 1, depth) + 0.5 * v
+      else:
+        v = sum([v_biased(state.generateSuccessor(player, a), 0, depth + 1) for a in legalMoves]) / len(legalMoves)
+        if Directions.STOP in legalMoves:
+          return 0.5 * v_biased(state.generateSuccessor(player, Directions.STOP), 0, depth + 1) + 0.5 * v
+      return v
+
+    numAgents = gameState.getNumAgents()
+    nextPlayer = (self.index + 1) % numAgents
+    successorState = gameState.generateSuccessor(self.index, action)
+    return v_biased(successorState, nextPlayer, 0)
     # END_YOUR_ANSWER
 
 ######################################################################################
@@ -317,7 +360,16 @@ class ExpectiminimaxAgent(MultiAgentSearchAgent):
     """
 
     # BEGIN_YOUR_ANSWER
-    raise NotImplementedError  # remove this line before writing code
+    if gameState.isWin() or gameState.isLose():
+      return Directions.STOP
+
+    # Collect legal moves and successor states
+    legalMoves = gameState.getLegalActions(self.index)
+    scores = [self.getQ(gameState, action) for action in legalMoves]
+    bestScore = max(scores)
+    bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+    chosenIndex = random.choice(bestIndices)  # Pick randomly among the best
+    return legalMoves[chosenIndex]
     # END_YOUR_ANSWER
   
   def getQ(self, gameState, action):
@@ -325,7 +377,36 @@ class ExpectiminimaxAgent(MultiAgentSearchAgent):
       Returns the expectiminimax Q-Value using self.depth and self.evaluationFunction.
     """
     # BEGIN_YOUR_ANSWER
-    raise NotImplementedError  # remove this line before writing code
+    def v_imaxmin(state, player, depth):
+      # manage end state utility and evaluation for the end of depth
+      if state.isWin() or state.isLose():
+        return state.getScore()
+      if depth == self.depth:
+        return self.evaluationFunction(state)
+
+      # collect legal moves, and list possible states
+      legalMoves = state.getLegalActions(player)
+      if len(legalMoves) == 0:
+        return self.evaluationFunction(state)
+
+      # if pacman turn, choose maximum
+      if player == 0:
+        return max([v_imaxmin(state.generateSuccessor(player, a), player + 1, depth) for a in legalMoves])
+      # if ghost turn, determine next player and depth
+      player_next = (player + 1) % gameState.getNumAgents()
+      if player_next == 0:
+        depth += 1
+      # odd: select minimum / even: random selection
+      if player % 2 == 1:
+        return min([v_imaxmin(state.generateSuccessor(player, a), player_next, depth) for a in legalMoves])
+      else:
+        return sum([v_imaxmin(state.generateSuccessor(player, a), player_next, depth) for a in legalMoves]) / len(
+          legalMoves)
+
+    numAgents = gameState.getNumAgents()
+    nextPlayer = (self.index + 1) % numAgents
+    successorState = gameState.generateSuccessor(self.index, action)
+    return v_imaxmin(successorState, nextPlayer, 0)
     # END_YOUR_ANSWER
 
 ######################################################################################
