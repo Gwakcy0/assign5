@@ -423,7 +423,16 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
     """
 
     # BEGIN_YOUR_ANSWER
-    raise NotImplementedError  # remove this line before writing code
+    if gameState.isWin() or gameState.isLose():
+      return Directions.STOP
+
+    # Collect legal moves and successor states
+    legalMoves = gameState.getLegalActions(self.index)
+    scores = [self.getQ(gameState, action) for action in legalMoves]
+    bestScore = max(scores)
+    bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+    chosenIndex = random.choice(bestIndices)  # Pick randomly among the best
+    return legalMoves[chosenIndex]
     # END_YOUR_ANSWER
   
   def getQ(self, gameState, action):
@@ -431,19 +440,139 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
       Returns the expectiminimax Q-Value using self.depth and self.evaluationFunction.
     """
     # BEGIN_YOUR_ANSWER
-    raise NotImplementedError  # remove this line before writing code
+    def v_alphabeta(state, player, depth, alpha, beta):
+      # manage end state utility and evaluation for the end of depth
+      if state.isWin() or state.isLose():
+        return state.getScore()
+      if depth == self.depth:
+        return self.evaluationFunction(state)
+
+      # collect legal moves, and list possible states
+      legalMoves = state.getLegalActions(player)
+      if len(legalMoves) == 0:
+        return self.evaluationFunction(state)
+
+      # determine next player and depth
+      player_next = (player + 1) % state.getNumAgents()
+      if player_next == 0:
+        depth += 1
+
+      # if pacman turn, choose maximum
+      if player == 0:
+        value = -float('inf')
+        for a in legalMoves:
+          value = max(value, v_alphabeta(state.generateSuccessor(player, a), player_next, depth, alpha, beta))
+          alpha = max(value, alpha)
+          if beta <= alpha:
+            break
+        return value
+      elif player % 2 == 1:
+        value = float('inf')
+        for a in legalMoves:
+          value = min(value, v_alphabeta(state.generateSuccessor(player, a), player_next, depth, alpha, beta))
+          beta = min(value, beta)
+          if beta <= alpha:
+            break
+        return value
+      else:
+        return sum([v_alphabeta(state.generateSuccessor(player, a), player_next, depth, alpha, beta) for a in legalMoves]) / len(
+          legalMoves)
+
+    numAgents = gameState.getNumAgents()
+    nextPlayer = (self.index + 1) % numAgents
+    successorState = gameState.generateSuccessor(self.index, action)
+    return v_alphabeta(successorState, nextPlayer, 0, -float('inf'), +float('inf'))
     # END_YOUR_ANSWER
 
 ######################################################################################
 # Problem 6a: creating a better evaluation function
 
+class MyAgent(MultiAgentSearchAgent):
+  def getAction(self, gameState):
+    """
+      Returns the expectiminimax action using self.depth and self.evaluationFunction
+    """
+
+    if gameState.isWin() or gameState.isLose():
+      return Directions.STOP
+
+    # Collect legal moves and successor states
+    legalMoves = gameState.getLegalActions(self.index)
+    scores = [self.getQ(gameState, action) for action in legalMoves]
+    bestScore = max(scores)
+    bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+    chosenIndex = random.choice(bestIndices)  # Pick randomly among the best
+    return legalMoves[chosenIndex]
+
+  def getQ(self, gameState, action):
+    """
+      Returns the expectiminimax Q-Value using self.depth and self.evaluationFunction.
+    """
+
+    def v_alphabeta(state, player, depth, alpha, beta):
+      # manage end state utility and evaluation for the end of depth
+      if state.isWin() or state.isLose() or depth == self.depth:
+        return self.evaluationFunction(state)
+
+      # collect legal moves, and list possible states
+      legalMoves = state.getLegalActions(player)
+      if len(legalMoves) == 0:
+        return self.evaluationFunction(state)
+
+      # determine next player and depth
+      player_next = (player + 1) % state.getNumAgents()
+      if player_next == 0:
+        depth += 1
+
+      # if pacman turn, choose maximum
+      if player == 0:
+        value = -float('inf')
+        for a in legalMoves:
+          value = max(value, v_alphabeta(state.generateSuccessor(player, a), player_next, depth, alpha, beta))
+          alpha = max(value, alpha)
+          if beta <= alpha:
+            break
+        return value
+      else:
+        pacPos = state.getPacmanPosition()
+        oppPos = state.getGhostPosition(player)
+        if manhattanDistance(pacPos, oppPos) < 3:
+          value = float('inf')
+          for a in legalMoves:
+            value = min(value, v_alphabeta(state.generateSuccessor(player, a), player_next, depth, alpha, beta))
+            beta = min(value, beta)
+            if beta <= alpha:
+              break
+          return value
+        else:
+          return sum([v_alphabeta(state.generateSuccessor(player, a), player_next, depth, alpha, beta) for a in legalMoves]) / len(
+          legalMoves)
+
+    numAgents = gameState.getNumAgents()
+    nextPlayer = (self.index + 1) % numAgents
+    successorState = gameState.generateSuccessor(self.index, action)
+    return v_alphabeta(successorState, nextPlayer, 0, -float('inf'), +float('inf'))
+
+
 def betterEvaluationFunction(currentGameState):
   """
   Your extreme, unstoppable evaluation function (problem 6).
   """
-
   # BEGIN_YOUR_ANSWER
-  raise NotImplementedError  # remove this line before writing code
+  score = currentGameState.getScore()
+  # pacPos = currentGameState.getPacmanPosition()
+  # food_list = currentGameState.getFood()
+
+  # give additional score for numFood
+  # numFood = currentGameState.getNumFood()
+  # score += 50 * numFood
+  # # # give additional score for progress (percentage of foods eaten)
+  # score += numFood * 20
+
+  # ghostStates = currentGameState.getGhostStates()
+  # scaredTimes = [ghostState.scaredTimer for ghostState in ghostStates]
+  # print(f'score: {score}, food_remaining: {numFood}')
+  return score
   # END_YOUR_ANSWER
 
 def choiceAgent():
@@ -454,7 +583,7 @@ def choiceAgent():
     (e.g. 'MinimaxAgent', 'BiasedExpectimaxAgent', 'MyOwnAgent', ...)
   """
   # BEGIN_YOUR_ANSWER
-  raise NotImplementedError  # remove this line before writing code
+  return 'MyAgent'
   # END_YOUR_ANSWER
 
 # Abbreviation
